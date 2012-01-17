@@ -8,3 +8,7 @@ It's loosely based on several pieces of code found elsewhere:
 
 
 It can be found at http://github.com/guaka/python_drupal_services
+
+dgtlmoon's D7 fork at https://github.com/dgtlmoon/python_drupal_services
+
+(Tested with username/password combo but no API KEY in Drupal7/XMLRPC settings)
