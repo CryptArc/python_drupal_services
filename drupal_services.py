@@ -215,8 +215,12 @@ if __name__ == "__main__":
     from config import config
     drupal = DrupalServices(config)
 
+    # Create a language-neutral node, use the string 'und' to infer language-neutral node
+    # other languages, use other language strings
+    
     new_node = { 'type': 'page',
                  'title': 'Just a little test',
+                 'language' : 'und',
                  'body': { 'und' : { '0' : {'value' : '''Ordenar bibliotecas es ejercer de un modo silencioso el arte de la critica.
 --- Jorge Luis Borges. (1899-1986) Escritor argentino.''' } }} ,
     }
