@@ -12,3 +12,17 @@ It can be found at http://github.com/guaka/python_drupal_services
 dgtlmoon's D7 fork at https://github.com/dgtlmoon/python_drupal_services
 
 (Tested with username/password combo but no API KEY in Drupal7/XMLRPC settings)
+
+After placing your username/password into the config.py, after executing it should print the
+output of the node it created
+
+# ./drupal_services.py 
+New node id: 56
+Node.....
+Node title: Just a little test 
+Node body: Ordenar bibliotecas es ejercer de un modo silencioso el arte de la critica.
+--- Jorge Luis Borges. (1899-1986) Escritor argentino. 
+
+
+#
+
