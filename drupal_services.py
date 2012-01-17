@@ -27,23 +27,80 @@ but without a session is currently not supported.
 
 
 import xmlrpclib, time, random, string, hmac, hashlib, pprint
+import re
+
+class SpecialTransport(xmlrpclib.Transport):
+    def __init__(self, use_datetime=0):
+        self._use_datetime = use_datetime
+        self._connection = (None, None)
+        self._extra_headers = []
+        self.cookie = ""
+
+    def single_request(self, host, handler, request_body, verbose=0):
+        # issue XML-RPC request
+
+        h = self.make_connection(host)
+        if verbose:
+            h.set_debuglevel(1)
+
+        try:
+            self.send_request(h, handler, request_body)
+            self.send_host(h, host)
+            self.send_user_agent(h)
+            self.send_content(h, request_body)
+
+            response = h.getresponse(buffering=True)
+            
+            if response.status == 200:
+        	# Really really primitive session cookie handling
+	        if (response.getheader("Set-Cookie", 0)):
+	    	    result = re.search('.+(SESS.*?;)', response.getheader("Set-Cookie", 0), re.IGNORECASE)
+	    	    if result is not None:
+			self.cookie = result.group(1)
+		    		    
+                self.verbose = verbose
+                return self.parse_response(response)
+        except xmlrpclib.Fault:
+            raise
+        except Exception:
+            # All unexpected errors leave connection in
+            # a strange state, so we clear it.
+            self.close()
+            raise
+
+
+        #discard any response data and raise exception
+        if (response.getheader("content-length", 0)):
+            response.read()
+        raise xmlrpclib.ProtocolError(
+            host + handler,
+            response.status, response.reason,
+            response.msg,
+            )
+
+
+    def send_host(self, connection, host):
+        xmlrpclib.Transport.send_host(self, connection, host)        
+        # Primitive cookie handling
+        connection.putheader("Cookie", self.cookie)
+        
 
 class BasicServices(xmlrpclib.Server):
     """Drupal Services without keys or sessions, not very secure."""
     def __init__(self, url):
-        xmlrpclib.Server.__init__(self, url)
+        xmlrpclib.Server.__init__(self, url, SpecialTransport())
         self.connection = self.system.connect()
         self.sessid = self.connection['sessid']
 
     def call(self, method_name, *args):
-        return getattr(self, method_name)(self._build_eval_list(method_name, args))
+    
+        return getattr(self, method_name)(args[0])
                            
     def _build_eval_list(self, method_name, args):
         # method_name is used in ServicesSessidKey
         return args
 
     def __eval(self, to_eval):
-        print to_eval
         try:
             return eval(to_eval)
         except xmlrpclib.Fault, err:
@@ -57,7 +114,8 @@ class ServicesSessid(BasicServices):
     """Drupal Services with sessid."""
     def __init__(self, url, username, password):
         BasicServices.__init__(self, url)
-        self.session = self.user.login(self.sessid, username, password)
+        # note: self.session not really used as we snarf the SESS cookie in the specialtransport
+        self.session = self.user.login(username, password)
 
     def _build_eval_list(self, args):
         return ([self.sessid] + 
@@ -151,6 +209,7 @@ class DrupalServices:
 
 
 
+  
 
 if __name__ == "__main__":
     from config import config
@@ -158,9 +217,16 @@ if __name__ == "__main__":
 
     new_node = { 'type': 'page',
                  'title': 'Just a little test',
-                 'body': '''Ordenar bibliotecas es ejercer de un modo silencioso el arte de la critica.
--- Jorge Luis Borges. (1899-1986) Escritor argentino.''',
-                 }
-    new_node_id = drupal.call('node.save', new_node)
-    print 'New node id: %s' % new_node_id 
-    print drupal.call('node.get', int(new_node_id), ['body'])
+                 'body': { 'und' : { '0' : {'value' : '''Ordenar bibliotecas es ejercer de un modo silencioso el arte de la critica.
+--- Jorge Luis Borges. (1899-1986) Escritor argentino.''' } }} ,
+    }
+
+    node = drupal.call('node.create', new_node)
+       
+    print 'New node id: %s' % node['nid'] 
+    
+    created_node = drupal.call('node.retrieve', int(node['nid']))
+    
+    print "Node information"
+    print "Node title: %s " % (created_node['title'])
+    print "Node body: %s " % (created_node['body']['und'][0]['value'])
